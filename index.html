@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Soal Interaktif Siswa</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f3f8fc; }
+    .container { max-width: 600px; margin: 30px auto; background: #fff; padding: 30px 20px 20px 20px; border-radius: 8px; box-shadow: 0 0 10px #ccd9e4; }
+    h1 { text-align: center; color: #1565c0; }
+    .soal { margin-bottom: 22px; }
+    .opsi label { display: block; margin-bottom: 6px; cursor: pointer; }
+    .btn { background: #1976d2; color: #fff; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px;}
+    .btn:disabled { background: #b0bec5; cursor: not-allowed; }
+    .skor { background: #e3f2fd; padding: 12px; border-radius: 5px; margin-top: 18px; text-align: center; font-size: 18px; }
+    .jawaban-benar { color: #388e3c; }
+    .jawaban-salah { color: #d32f2f; }
+    #nama-siswa { padding:5px;margin-bottom:12px;width:70%; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Soal Interaktif Siswa</h1>
+    <input id="nama-siswa" type="text" placeholder="Nama Siswa" />
+    <div id="soal-list"></div>
+    <button id="submit-btn" class="btn">Cek Jawaban & Kirim</button>
+    <div id="skor" class="skor" style="display:none;"></div>
+  </div>
+
+  <script>
+    const soalList = document.getElementById('soal-list');
+    const submitBtn = document.getElementById('submit-btn');
+    const skorDiv = document.getElementById('skor');
+    const namaInput = document.getElementById('nama-siswa');
+
+    let soals = [];
+    let jawaban = {};
+
+    const API_URL = "http://localhost:3001/soal";
+    const JAWABAN_URL = "http://localhost:3001/jawaban";
+
+    fetch(API_URL)
+      .then(res => res.json())
+      .then(data => {
+        soals = data;
+        tampilkanSoal();
+      })
+      .catch(() => {
+        soalList.innerHTML = "<p style='color:red;'>Gagal mengambil data soal!</p>";
+        submitBtn.disabled = true;
+      });
+
+    function tampilkanSoal() {
+      soalList.innerHTML = "";
+      soals.forEach((s, idx) => {
+        let opsiHtml = "";
+        if (s.tipe === "pg") {
+          opsiHtml = (s.opsi || []).map((opsiText, i) => `
+            <label>
+              <input type="radio" name="soal${s.id}" value="${String.fromCharCode(97 + i)}"
+                onchange="jawab('${s.id}', '${String.fromCharCode(97 + i)}')">
+              ${opsiText}
+            </label>
+          `).join('');
+        } else if (s.tipe === "isian") {
+          opsiHtml = `<input type="text" onchange="jawab('${s.id}', this.value)" style="width:80%;padding:4px"/>`;
+        }
+        soalList.innerHTML += `
+          <div class="soal">
+            <div><b>${idx + 1}. ${s.soal}</b></div>
+            <div class="opsi">${opsiHtml}</div>
+          </div>
+        `;
+      });
+    }
+
+    window.jawab = function(id, val) {
+      jawaban[id] = val.trim();
+    }
+
+    submitBtn.onclick = function() {
+      if (!namaInput.value.trim()) {
+        alert('Silakan isi nama siswa');
+        return;
+      }
+      let benar = 0;
+      soals.forEach(s => {
+        if (s.tipe === "pg" && jawaban[s.id] === s.kunci) benar++;
+        else if (s.tipe === "isian" && jawaban[s.id]?.toLowerCase() === s.kunci?.toLowerCase()) benar++;
+      });
+      let hasil = `Skor Kamu: <b>${benar} / ${soals.length}</b><br><hr>Jawaban:<ul style='text-align:left'>`;
+      soals.forEach((s, idx) => {
+        const benarUser = (s.tipe === "pg" && jawaban[s.id] === s.kunci) ||
+                          (s.tipe === "isian" && jawaban[s.id]?.toLowerCase() === s.kunci?.toLowerCase());
+        hasil += `<li>
+          <b>${idx+1}.</b> ${s.soal}<br>
+          Jawaban kamu: <span class="${benarUser ? 'jawaban-benar':'jawaban-salah'}">
+            ${jawaban[s.id] ? (s.tipe === "pg" ? s.opsi[jawaban[s.id]?.charCodeAt(0)-97] : jawaban[s.id]) : '<i>Belum dijawab</i>'}
+          </span> 
+          <br>Kunci: <b>${s.tipe === "pg" ? s.opsi[s.kunci?.charCodeAt(0)-97] : s.kunci}</b>
+        </li>`;
+      });
+      hasil += "</ul>";
+      skorDiv.innerHTML = hasil;
+      skorDiv.style.display = "block";
+      submitBtn.disabled = true;
+
+      // Kirim jawaban ke backend
+      fetch(JAWABAN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nama: namaInput.value.trim(), jawaban }),
+      }).then(() => {
+        alert('Jawaban kamu telah disimpan!');
+      });
+    }
+  </script>
+</body>
+</html>
