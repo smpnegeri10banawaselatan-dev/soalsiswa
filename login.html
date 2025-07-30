@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <script>
+    function login() {
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      google.script.run.withSuccessHandler(function(result) {
+        if (result) {
+          sessionStorage.setItem("user", username);
+          window.location.href = "https://script.google.com/macros/s/DEPLOYMENT_ID/exec?page=ujian";
+        } else {
+          alert("Login gagal");
+        }
+      }).checkLogin(username, password);
+    }
+  </script>
+</head>
+<body>
+  <h2>Login Ujian</h2>
+  Username: <input id="username"><br>
+  Password: <input id="password" type="password"><br>
+  <button onclick="login()">Login</button>
+</body>
+</html>
